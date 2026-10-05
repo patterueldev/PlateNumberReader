@@ -55,3 +55,42 @@ describe('parsePlate', () => {
     expect(formatPlate('ab 1234')).toBe('AB 1234');
   });
 });
+
+describe('digits-first and mixed motorcycle formats', () => {
+  it('parses 123 ABC (current motorcycle and tricycle format)', () => {
+    const parsed = parsePlate('123 ABC');
+    expect(parsed.valid).toBe(true);
+    expect(parsed.letters).toBe('ABC');
+    expect(parsed.digits).toBe('123');
+    expect(parsed.lastDigit).toBe(3);
+    expect(parsed.secondToLastDigit).toBe(2);
+    expect(parsed.kind).toBe('motorcycle');
+  });
+
+  it('parses mixed LTO formats', () => {
+    const first = parsePlate('A 123 BC');
+    expect(first.valid).toBe(true);
+    expect(first.digits).toBe('123');
+    expect(first.letters).toBe('ABC');
+
+    const second = parsePlate('AB 123 C');
+    expect(second.valid).toBe(true);
+    expect(second.digits).toBe('123');
+    expect(second.letters).toBe('ABC');
+
+    const third = parsePlate('A1C234');
+    expect(third.valid).toBe(true);
+    expect(third.digits).toBe('1234');
+    expect(third.letters).toBe('AC');
+
+    const fourth = parsePlate('A 12C 34');
+    expect(fourth.valid).toBe(true);
+    expect(fourth.digits).toBe('1234');
+  });
+
+  it('keeps the original arrangement when formatting', () => {
+    expect(formatPlate('123abc')).toBe('123 ABC');
+    expect(formatPlate('a123bc')).toBe('A 123 BC');
+    expect(formatPlate('A 123 BC')).toBe('A 123 BC');
+  });
+});

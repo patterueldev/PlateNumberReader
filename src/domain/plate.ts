@@ -37,41 +37,74 @@ export function normalizePlate(input: string): string {
   return (input || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
-function guessKind(letters: string): VehicleKind {
+function guessKind(letters: string, normalized: string): VehicleKind {
+  if (letters.length === 0) return 'other';
+  if (/^\d/.test(normalized)) return letters.length <= 3 ? 'motorcycle' : 'other';
   if (letters.length === 2) return 'motorcycle';
   if (letters.length === 3) return 'car';
   return 'other';
 }
 
+interface Token {
+  value: string;
+  isDigit: boolean;
+}
+
 function splitPlate(normalized: string): { letters: string; digits: string } {
-  const simple = /^([A-Z]*)(\d+)$/.exec(normalized);
-  if (simple) {
-    let letters = simple[1];
-    let digits = simple[2];
-    while (letters.length > 3) {
-      const last = letters[letters.length - 1];
-      const fixed = DIGIT_FIXES[last];
-      if (!fixed) break;
-      digits = fixed + digits;
-      letters = letters.slice(0, -1);
+  const allFixableToDigits = normalized
+    .split('')
+    .every((ch) => /[0-9]/.test(ch) || DIGIT_FIXES[ch]);
+
+  const tokens: Token[] = normalized.split('').map((ch) => ({
+    value: ch,
+    isDigit: /[0-9]/.test(ch),
+  }));
+
+  if (!tokens.some((token) => token.isDigit)) {
+    if (allFixableToDigits) {
+      return {
+        letters: '',
+        digits: tokens.map((token) => DIGIT_FIXES[token.value] ?? token.value).join(''),
+      };
     }
-    return { letters, digits };
+    return { letters: normalized, digits: '' };
   }
 
-  let split = normalized.length;
-  while (split > 0) {
-    const ch = normalized[split - 1];
-    if (/[0-9]/.test(ch) || DIGIT_FIXES[ch]) {
-      split -= 1;
-    } else {
+  const recompute = () => {
+    let letters = '';
+    let digits = '';
+    for (const token of tokens) {
+      if (token.isDigit) {
+        digits += token.value;
+      } else {
+        letters += token.value;
+      }
+    }
+    return { letters, digits };
+  };
+
+  let result = recompute();
+  while (result.letters.length > 3) {
+    let peeled = false;
+    for (let i = tokens.length - 1; i >= 0; i -= 1) {
+      const token = tokens[i];
+      if (token.isDigit) continue;
+      const fixed = DIGIT_FIXES[token.value];
+      if (!fixed) continue;
+      const leftIsDigit = i > 0 && tokens[i - 1].isDigit;
+      const rightIsDigit = i < tokens.length - 1 && tokens[i + 1].isDigit;
+      if (!leftIsDigit && !rightIsDigit) continue;
+      token.value = fixed;
+      token.isDigit = true;
+      peeled = true;
       break;
     }
+    if (!peeled) break;
+    result = recompute();
   }
-  const head = normalized.slice(0, split);
-  const tail = normalized.slice(split);
-  const letters = head.replace(/[0-9]/g, (c) => LETTER_FIXES[c] ?? c);
-  const digits = tail.replace(/[A-Z]/g, (c) => DIGIT_FIXES[c] ?? c);
-  return { letters, digits };
+
+  const letters = result.letters.replace(/[0-9]/g, (c) => LETTER_FIXES[c] ?? c);
+  return { letters, digits: result.digits };
 }
 
 export function parsePlate(input: string): ParsedPlate {
@@ -115,7 +148,7 @@ export function parsePlate(input: string): ParsedPlate {
     digits,
     lastDigit,
     secondToLastDigit,
-    kind: guessKind(letters),
+    kind: guessKind(letters, normalized),
     valid: true,
   };
 }
@@ -123,5 +156,10 @@ export function parsePlate(input: string): ParsedPlate {
 export function formatPlate(input: string): string {
   const parsed = parsePlate(input);
   if (!parsed.valid) return normalizePlate(input);
-  return parsed.letters ? `${parsed.letters} ${parsed.digits}` : parsed.digits;
+  const trimmed = (input || '').trim().toUpperCase();
+  if (/[^A-Z0-9]/.test(trimmed)) {
+    return trimmed.replace(/[^A-Z0-9]+/g, ' ').trim();
+  }
+  const groups = parsed.normalized.match(/[A-Z]+|\d+/g);
+  return groups ? groups.join(' ') : parsed.normalized;
 }
