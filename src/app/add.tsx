@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { formatPlate, parsePlate } from '@/domain/plate';
@@ -29,8 +29,7 @@ export default function AddVehicleScreen() {
   const router = useRouter();
 
   const [step, setStep] = useState<'identify' | 'details'>('identify');
-  const [kind, setKind] = useState<VehicleKind>('car');
-  const [kindTouched, setKindTouched] = useState(false);
+  const [selectedKind, setSelectedKind] = useState<VehicleKind | null>(null);
   const [plateText, setPlateText] = useState('');
   const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [scanning, setScanning] = useState(false);
@@ -43,12 +42,8 @@ export default function AddVehicleScreen() {
   const [saving, setSaving] = useState(false);
 
   const parsed = useMemo(() => parsePlate(plateText), [plateText]);
-
-  useEffect(() => {
-    if (!kindTouched && parsed.valid && parsed.kind !== 'other') {
-      setKind(parsed.kind);
-    }
-  }, [kindTouched, parsed.kind, parsed.valid]);
+  const kind =
+    selectedKind ?? (parsed.valid && parsed.kind !== 'other' ? parsed.kind : 'car');
   const summary = parsed.valid ? scheduleSummary(parsed.lastDigit, parsed.secondToLastDigit) : null;
   const dateError =
     lastRegisteredAt && !parseIsoDate(lastRegisteredAt) ? 'Use the format YYYY-MM-DD' : undefined;
@@ -170,8 +165,7 @@ export default function AddVehicleScreen() {
         options={KIND_OPTIONS}
         value={kind}
         onChange={(value) => {
-          setKindTouched(true);
-          setKind(value);
+          setSelectedKind(value);
         }}
       />
 

@@ -153,7 +153,7 @@ export default function VehicleDetailScreen() {
             <InfoRow label="Validity" value={`${vehicle.validityYears} year${vehicle.validityYears > 1 ? 's' : ''}`} />
             <InfoRow
               label="Expires"
-              value={status.expiry ? formatDate(status.expiry) : 'Add last registration date'}
+              value={status.expiry ? formatDate(status.expiry) : 'Not set'}
             />
             <AppButton
               title={vehicle.lastRegisteredAt ? 'Edit registration details' : 'Add last registration date'}
